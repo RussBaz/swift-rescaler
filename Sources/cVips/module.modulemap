@@ -1,0 +1,5 @@
+module cVips [system] {
+    header "vips.h"
+    link "vips"
+    export *
+}
