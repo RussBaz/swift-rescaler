@@ -33,7 +33,10 @@ let package = Package(
         ),
         .testTarget(
             name: "swift-rescalerTests",
-            dependencies: ["swift-rescaler"]
+            dependencies: ["swift-rescaler"],
+            resources: [
+                .copy("samples"),
+            ]
         ),
     ]
 )
