@@ -16,7 +16,8 @@ public class RSPipeline {
 
     init() {}
 
-    public func run(from source: RSImageSource, to _: String) throws {
+    @discardableResult
+    public func run(from source: RSImageSource, to filename: String) throws -> RSContainer {
         let container = RSContainer(source: source)
 
         guard let container else {
@@ -27,60 +28,11 @@ public class RSPipeline {
             throw RSError.badScalingValuePair
         }
 
-        switch (height, width) {
-        case let (.some(h), .some(w)):
-            if let input = container.inImage {
-                guard vips_thumbnail_image_width_and_height_wrapper(input, &container.outImage, Int32(w), Int32(h)) == 0 else {
-                    throw RSError.failedThumbnailingOperation
-                }
-            } else {
-                switch container.source {
-                case let .file(name):
-                    guard vips_thumbnail_width_and_height_wrapper(name, &container.outImage, Int32(w), Int32(h)) == 0 else {
-                        throw RSError.failedThumbnailingOperation
-                    }
-                case let .data(data):
-//                    guard data.withUnsafeBytes({ (bytes: UnsafeRawBufferPointer) -> Int32 in
-//                        guard let baseAddress = bytes.baseAddress else {
-//                            return -1
-//                        }
-//
-//                        return vips_thumbnail_buffer_width_and_height_wrapper(baseAddress, data.count, &container.outImage, Int32(w), Int32(h))
-//                    }) == 0 else {
-//                        throw RSError.failedThumbnailingOperation
-//                    }
-                    ()
-                }
-            }
-        case let (.some(h), .none):
-            if let input = container.inImage {
-                guard vips_thumbnail_image_height_only_wrapper(input, &container.outImage, Int32(h)) == 0 else {
-                    throw RSError.failedThumbnailingOperation
-                }
-            } else {
-                switch container.source {
-                case let .file(name):
-                    ()
-                case let .data(data):
-                    ()
-                }
-            }
-        case let (.none, .some(w)):
-            if let input = container.inImage {
-                guard vips_thumbnail_image_width_only_wrapper(input, &container.outImage, Int32(w)) == 0 else {
-                    throw RSError.failedThumbnailingOperation
-                }
-            } else {
-                switch container.source {
-                case let .file(name):
-                    ()
-                case let .data(data):
-                    ()
-                }
-            }
-        case (.none, .none):
-            throw RSError.badScalingValuePair
-        }
+        try runThumbnail(container, width: width, height: height)
+        removeAllMetadata(container)
+        try container.save(to: filename)
+
+        return container
     }
 
     public func run(from _: RSImageSource, to _: inout Data) {}
@@ -98,6 +50,102 @@ public class RSPipeline {
             inLinearColourSpace
         default:
             true
+        }
+    }
+
+    private func removeAllMetadata(_ container: RSContainer) {
+        var fields: [String] = []
+        if let outImage = container.outImage {
+            if var rawFieldNames = vips_image_get_fields(outImage) {
+                while let cs = rawFieldNames.pointee {
+                    fields.append(String(cString: cs))
+                    rawFieldNames += 1
+                }
+            }
+        }
+
+        for field in fields {
+            vips_image_remove(container.outImage, field)
+        }
+    }
+
+    private func runThumbnail(_ container: RSContainer, width: UInt?, height: UInt?) throws {
+        let linear: Int32 = if inLinearColourSpace { 1 } else { 0 }
+        switch (width, height) {
+        case let (.some(w), .some(h)):
+            if let input = container.inImage {
+                guard vips_thumbnail_image_width_and_height_wrapper(input, &container.outImage, Int32(w), Int32(h), linear) == 0 else {
+                    throw RSError.failedThumbnailingOperation
+                }
+            } else {
+                switch container.source {
+                case let .file(name):
+                    guard vips_thumbnail_width_and_height_wrapper(name, &container.outImage, Int32(w), Int32(h), linear) == 0 else {
+                        throw RSError.failedThumbnailingOperation
+                    }
+                case let .data(data):
+                    var mutableDate = data
+                    guard mutableDate.withUnsafeMutableBytes({ (bytes: UnsafeMutableRawBufferPointer) -> Int32 in
+                        guard let baseAddress = bytes.baseAddress else {
+                            return -1
+                        }
+
+                        return vips_thumbnail_buffer_width_and_height_wrapper(baseAddress, data.count, &container.outImage, Int32(w), Int32(h), linear)
+                    }) == 0 else {
+                        throw RSError.failedThumbnailingOperation
+                    }
+                }
+            }
+        case let (.none, .some(h)):
+            if let input = container.inImage {
+                guard vips_thumbnail_image_height_only_wrapper(input, &container.outImage, Int32(h), linear) == 0 else {
+                    throw RSError.failedThumbnailingOperation
+                }
+            } else {
+                switch container.source {
+                case let .file(name):
+                    guard vips_thumbnail_height_only_wrapper(name, &container.outImage, Int32(h), linear) == 0 else {
+                        throw RSError.failedThumbnailingOperation
+                    }
+                case let .data(data):
+                    var mutableDate = data
+                    guard mutableDate.withUnsafeMutableBytes({ (bytes: UnsafeMutableRawBufferPointer) -> Int32 in
+                        guard let baseAddress = bytes.baseAddress else {
+                            return -1
+                        }
+
+                        return vips_thumbnail_buffer_height_only_wrapper(baseAddress, data.count, &container.outImage, Int32(h), linear)
+                    }) == 0 else {
+                        throw RSError.failedThumbnailingOperation
+                    }
+                }
+            }
+        case let (.some(w), .none):
+            if let input = container.inImage {
+                guard vips_thumbnail_image_width_only_wrapper(input, &container.outImage, Int32(w), linear) == 0 else {
+                    throw RSError.failedThumbnailingOperation
+                }
+            } else {
+                switch container.source {
+                case let .file(name):
+                    guard vips_thumbnail_width_only_wrapper(name, &container.outImage, Int32(w), linear) == 0 else {
+                        throw RSError.failedThumbnailingOperation
+                    }
+                case let .data(data):
+                    var mutableDate = data
+                    guard mutableDate.withUnsafeMutableBytes({ (bytes: UnsafeMutableRawBufferPointer) -> Int32 in
+                        guard let baseAddress = bytes.baseAddress else {
+                            return -1
+                        }
+
+                        return vips_thumbnail_buffer_width_only_wrapper(baseAddress, data.count, &container.outImage, Int32(w), linear)
+                    }) == 0 else {
+                        throw RSError.failedThumbnailingOperation
+                    }
+                }
+            }
+        case (.none, .none):
+            throw RSError.badScalingValuePair
         }
     }
 

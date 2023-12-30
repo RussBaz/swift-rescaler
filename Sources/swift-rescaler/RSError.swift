@@ -3,4 +3,7 @@ public enum RSError: Error {
     case failedToLoadImage
     case badScalingValuePair
     case failedThumbnailingOperation
+    case failedSavingToFile
+    case nothingToSaveToFile
+    case failedSavingToBuffer
 }

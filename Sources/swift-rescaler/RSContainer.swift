@@ -96,4 +96,38 @@ public class RSContainer {
 
         return nil
     }
+
+    var outputImage: VipsImage? {
+        if let outImage {
+            return outImage.pointee
+        }
+
+        return nil
+    }
+
+    func save(to filename: String) throws {
+        if let outImage {
+            guard vips_image_write_to_file_wrapper(outImage, filename) == 0 else {
+                throw RSError.failedSavingToFile
+            }
+        } else if let inImage {
+            guard vips_image_write_to_file_wrapper(inImage, filename) == 0 else {
+                throw RSError.failedSavingToFile
+            }
+        } else {
+            throw RSError.nothingToSaveToFile
+        }
+    }
+
+    func save(to _: inout Data) throws {
+        if let outImage {
+//            try data.withUnsafeMutableBytes { bytes in
+//                guard let baseAddress = bytes.baseAddress else {
+//                    throw RSError.failedSavingToBuffer
+//                }
+//
+//                vips_image_write_to_buffer_wrapper(outImage, "[]", &baseAddress, data.count)
+//            }
+        }
+    }
 }

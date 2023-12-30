@@ -179,7 +179,7 @@ public final class VipsManager {
         filenames.compactMap { VipsContainer(filename: $0) }
     }
 
-    public static func pipeline() -> RSPipeline {
+    public func pipeline() -> RSPipeline {
         RSPipeline()
     }
 }
