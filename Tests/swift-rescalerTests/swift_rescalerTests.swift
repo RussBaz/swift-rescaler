@@ -1,5 +1,6 @@
 @testable import swift_rescaler
 import XCTest
+import cVipsWrapper
 
 final class swift_rescalerTests: XCTestCase {
     func testExample() throws {
@@ -12,7 +13,8 @@ final class swift_rescalerTests: XCTestCase {
 
         let pipe = try VipsManager.shared.pipeline()
 
-        try pipe.rescale(x: .to(256), y: .proportional)
-            .run(from: .file(name: "\(pathPrefix)/samples/mini_merlion.jpeg"), to: "\(pathPrefix)/samples/mini_merlion_256.jpeg")
+        try pipe
+            .rescale(width: .to(256), height: .proportional)
+            .run(from: .file(name: "\(pathPrefix)/samples/mini_merlion.jpeg"), to: "\(pathPrefix)/samples/mini_merlion_256.avif")
     }
 }
